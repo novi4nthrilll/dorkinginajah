@@ -1,110 +1,130 @@
 #!/usr/bin/env python3
 """
 Interactive Google Dork & Advanced Search Query Builder
-Tampilan modern dengan dominant aksen Orange & Blue.
+Didesain dengan Rich UI: Auto-responsive terminal width, warna dominan Orange & Blue.
 """
 
+import sys
+import os
 import urllib.parse
 import itertools
 import webbrowser
-import sys
-import os
 
-# --- PALET WARNA (ANSI 256 Color) ---
-ORANGE_DARK  = "\033[38;5;202m"
-ORANGE       = "\033[38;5;208m"
-ORANGE_LIGHT = "\033[38;5;214m"
-ORANGE_BOLD  = "\033[1;38;5;208m"
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.text import Text
+from rich.prompt import Prompt, Confirm
+from rich import box
+from rich.align import Align
 
-BLUE_DARK    = "\033[38;5;27m"
-BLUE         = "\033[38;5;33m"
-BLUE_CYAN    = "\033[38;5;39m"
-BLUE_BOLD    = "\033[1;38;5;39m"
+console = Console()
 
-WHITE_BOLD   = "\033[1;97m"
-GRAY         = "\033[38;5;244m"
-LIGHT_GRAY   = "\033[38;5;252m"
-GREEN        = "\033[38;5;82m"
-RED          = "\033[38;5;196m"
-RESET        = "\033[0m"
-
+# --- DEFINISI OPERATOR & DESKRIPSI ---
 OPERATORS = {
-    "1": ("site:", "Filter domain / subdomain spesifik (contoh: target.com, *.gov.id)"),
-    "2": ("filetype:", "Ekstensi/tipe file (contoh: pdf, env, bak, sql, xlsx, txt)"),
-    "3": ("inurl:", "Kata kunci di URL (contoh: admin, login, wp-content, api)"),
-    "4": ("intitle:", "Kata kunci di judul dokumen/web (contoh: \"index of\", dashboard)"),
-    "5": ("intext:", "Kata kunci di body konten teks (contoh: password, confidential)"),
-    "6": ("ext:", "Sinonim filetype untuk search engine alternatif"),
-    "7": ("cache:", "Melihat salinan cache Google dari suatu URL"),
-    "8": ("related:", "Mencari situs yang mirip / berkaitan dengan domain"),
-    "9": ("before:", "Hasil sebelum tanggal tertentu (format: YYYY-MM-DD)"),
-    "10": ("after:", "Hasil sesudah tanggal tertentu (format: YYYY-MM-DD)"),
+    "1": ("site:", "Filter domain atau subdomain", "target.com, *.gov.id, *.ac.id"),
+    "2": ("filetype:", "Ekstensi dokumen / file penting", "pdf, env, bak, sql, xlsx, txt"),
+    "3": ("inurl:", "Kata kunci wajib di dalam URL", "admin, login, wp-content, api/v1"),
+    "4": ("intitle:", "Kata kunci di judul dokumen / web", "\"index of\", dashboard, portal"),
+    "5": ("intext:", "Kata kunci wajib di body teks", "password, confidential, api_key"),
+    "6": ("ext:", "Sinonim filetype untuk search engine", "log, config, json, yml"),
+    "7": ("cache:", "Melihat salinan snapshot cache Google", "https://example.com"),
+    "8": ("related:", "Mencari situs yang mirip / relevan", "target.com"),
+    "9": ("before:", "Hasil indeks sebelum tanggal tertentu", "2023-01-01"),
+    "10": ("after:", "Hasil indeks sesudah tanggal tertentu", "2022-01-01"),
 }
 
-BANNER = f"""{ORANGE}
-   ___             _        ___       _ _   _           
-  |   \\ ___  _ _ | |__    | _ )_  _ (_) |__| |___ _ _  
-  | |) / _ \\| '_|| / /    | _ \\ || || | / _` / -_) '_| 
-  |___/\\___/|_|  |_\\_\\    |___/\\_,_||_|_\\__,_\\___|_|   
-{RESET}{BLUE_BOLD}  :: GOOGLE DORK & RECONNAISSANCE QUERY BUILDER ::{RESET}
-  {GRAY}Automated OSINT & Attack Surface Query Generator{RESET}
-"""
+def render_banner():
+    banner_text = Text()
+    banner_text.append("⚡ GOOGLE DORK QUERY BUILDER ⚡\n", style="bold #FF8C00")
+    banner_text.append("OSINT Reconnaissance & Attack Surface Auditor\n", style="bold #00D4FF")
+    banner_text.append("Dirancang otomatis menyesuaikan ukuran layar terminal Anda.", style="dim italic #90CAF9")
+    
+    panel = Panel(
+        Align.center(banner_text),
+        box=box.ROUNDED,
+        border_style="#0099FF",
+        padding=(1, 2)
+    )
+    console.print(panel)
 
-def clean_input(prompt_text):
-    try:
-        return input(prompt_text).strip()
-    except (KeyboardInterrupt, EOFError):
-        print(f"\n\n{ORANGE}[!] {RED}Proses dibatalkan oleh user. Sampai jumpa!{RESET}\n")
-        sys.exit(0)
+def display_operator_table():
+    table = Table(
+        box=box.ROUNDED,
+        border_style="#0099FF",
+        header_style="bold #FF8C00",
+        expand=True
+    )
+    table.add_column("No", justify="center", style="bold #FFA726", width=4, no_wrap=True)
+    table.add_column("Operator", style="bold #00D4FF", width=12, no_wrap=True)
+    table.add_column("Fungsi & Kegunaan", style="white")
+    table.add_column("Contoh Nilai", style="#90CAF9")
 
-def display_menu():
-    print(f"\n{BLUE_CYAN}╭─────┬──────────────┬─────────────────────────────────────────────────────────────╮{RESET}")
-    print(f"{BLUE_CYAN}│ {ORANGE_BOLD}NO{RESET}  {BLUE_CYAN}│ {ORANGE_BOLD}OPERATOR    {RESET} {BLUE_CYAN}│ {ORANGE_BOLD}DESKRIPSI & FUNGSI                                          {RESET}{BLUE_CYAN}│{RESET}")
-    print(f"{BLUE_CYAN}├─────┼──────────────┼─────────────────────────────────────────────────────────────┤{RESET}")
-    for key, (op, desc) in OPERATORS.items():
+    for key, (op, desc, example) in OPERATORS.items():
         k_str = f"{int(key):02d}"
-        print(f"{BLUE_CYAN}│ {ORANGE_LIGHT}{k_str:<3}{RESET} {BLUE_CYAN}│ {BLUE_BOLD}{op:<12}{RESET} {BLUE_CYAN}│ {LIGHT_GRAY}{desc:<59}{RESET} {BLUE_CYAN}│{RESET}")
-    print(f"{BLUE_CYAN}╰─────┴──────────────┴─────────────────────────────────────────────────────────────╯{RESET}")
+        table.add_row(k_str, op, desc, example)
+
+    console.print(table)
 
 def get_operator_choices():
-    display_menu()
-    print(f"\n{BLUE_CYAN}╭─[{ORANGE_BOLD} PILIH ATRIBUT {RESET}{BLUE_CYAN}]───────────────────────────────────────────────────────────╮{RESET}")
-    print(f"{BLUE_CYAN}│{LIGHT_GRAY} Masukkan nomor atribut yang ingin dipakai (pisahkan dengan koma).         {BLUE_CYAN}│{RESET}")
-    print(f"{BLUE_CYAN}│{GRAY} Contoh: {ORANGE_LIGHT}1,2,5{GRAY} atau {ORANGE_LIGHT}4,5{GRAY} atau {ORANGE_LIGHT}1{GRAY} atau ketik {ORANGE_BOLD}all{GRAY} untuk semua atribut.        {BLUE_CYAN}│{RESET}")
-    print(f"{BLUE_CYAN}╰────────────────────────────────────────────────────────────────────────────╯{RESET}")
+    display_operator_table()
+    
+    info_panel = Panel(
+        Text.from_markup(
+            "[bold white]Ketik nomor atribut yang ingin digunakan[/bold white] (pisahkan koma).\n"
+            "[dim]Contoh:[/] [bold #FFA726]1,2,5[/] atau [bold #FFA726]4,5[/] atau [bold #FFA726]1[/] "
+            "atau ketik [bold #FF8C00]all[/] untuk memilih semua operator."
+        ),
+        box=box.ROUNDED,
+        border_style="#FF8C00",
+        title="[bold #FF8C00]Pilih Atribut[/bold #FF8C00]",
+        title_align="left"
+    )
+    console.print(info_panel)
     
     while True:
-        raw_choice = clean_input(f"{BLUE_CYAN}╭─[{ORANGE_BOLD}Pilih nomor{RESET}{BLUE_CYAN}]\n╰──❯ {ORANGE_LIGHT}")
-        print(RESET, end="")
-        if raw_choice.lower() == 'all':
+        try:
+            choice = Prompt.ask("[bold #00D4FF]❯ Masukkan pilihan[/bold #00D4FF]").strip()
+        except (KeyboardInterrupt, EOFError):
+            abort_program()
+            
+        if choice.lower() == 'all':
             return list(OPERATORS.keys())
         
-        selected = [x.strip() for x in raw_choice.split(',') if x.strip() in OPERATORS]
+        selected = [x.strip() for x in choice.split(',') if x.strip() in OPERATORS]
         if selected:
+            # Hilangkan duplikat dan jaga urutan
             seen = set()
             ordered = [x for x in selected if not (x in seen or seen.add(x))]
             return ordered
         else:
-            print(f"{ORANGE}[!] {RED}Pilihan tidak valid.{LIGHT_GRAY} Contoh valid: {ORANGE_LIGHT}1,3,4{RESET}")
+            console.print("[bold #FF3333][!] Pilihan tidak valid.[/bold #FF3333] [dim]Silakan masukkan nomor dari tabel (contoh: 1,2,4).[/dim]")
 
 def collect_attribute_values(chosen_keys):
     collected = []
-    print(f"\n{BLUE_BOLD}▼ MASUKKAN NILAI ATRIBUT:{RESET}")
+    console.print("\n[bold #00D4FF]▼ Masukkan Nilai untuk Tiap Atribut:[/bold #00D4FF]")
+    console.print("[dim white]Tekan Enter tanpa isi jika ingin mengosongkan/melewati atribut tersebut.[/dim white]\n")
     
     for key in chosen_keys:
-        op_prefix, desc = OPERATORS[key]
-        clean_desc = desc.split('(')[0].strip()
-        print(f"{BLUE_CYAN}┌── {ORANGE_BOLD}{op_prefix}{RESET} {GRAY}({clean_desc}){RESET}")
-        val = clean_input(f"{BLUE_CYAN}└──❯ {LIGHT_GRAY}")
-        print(RESET, end="")
+        op_prefix, desc, example = OPERATORS[key]
+        try:
+            prompt_label = f"[bold #FF8C00]{op_prefix:<11}[/bold #FF8C00] [dim white]({desc})[/dim white]"
+            val = Prompt.ask(prompt_label).strip()
+        except (KeyboardInterrupt, EOFError):
+            abort_program()
+            
         if val:
             collected.append((op_prefix, val))
         else:
-            print(f"    {GRAY}[dikosongkan - dilewati]{RESET}")
+            console.print(f"            [dim #666666]↳ dilewati (kosong)[/dim #666666]")
             
-    print(f"\n{BLUE_CYAN}┌── {ORANGE_BOLD}Kata Kunci Bebas / Quote Tambahan{RESET} {GRAY}(opsional, tekan Enter jika tidak ada){RESET}")
-    free_text = clean_input(f"{BLUE_CYAN}└──❯ {LIGHT_GRAY}")
-    print(RESET, end="")
+    # Kata kunci bebas tambahan
+    console.print()
+    try:
+        free_text = Prompt.ask("[bold #FFA726]Kata Kunci Bebas / Quote Tambahan[/bold #FFA726] [dim]('contoh: \"admin dashboard\"' / kosongkan)[/dim]").strip()
+    except (KeyboardInterrupt, EOFError):
+        abort_program()
+        
     if free_text:
         collected.append(("", free_text))
         
@@ -113,6 +133,7 @@ def collect_attribute_values(chosen_keys):
 def build_query_string(items):
     query_parts = []
     for prefix, val in items:
+        # Jika nilai ada spasi dan belum dibungkus kutip, tambahkan kutip ganda
         if ' ' in val and not (val.startswith('"') and val.endswith('"')):
             val = f'"{val}"'
         if prefix:
@@ -129,68 +150,102 @@ def generate_combinations(collected_items):
             all_combos.append(combo)
     return all_combos
 
+def abort_program():
+    console.print("\n\n[bold #FF8C00][!][/bold #FF8C00] [bold #FF3333]Proses dibatalkan oleh pengguna. Sampai jumpa![/bold #FF3333]\n")
+    sys.exit(0)
+
 def main():
-    os.system('clear' if os.name == 'posix' else 'cls')
-    print(BANNER)
+    console.clear()
+    render_banner()
     
     chosen_keys = get_operator_choices()
     collected = collect_attribute_values(chosen_keys)
     
     if not collected:
-        print(f"\n{ORANGE}[!] {RED}Tidak ada nilai atribut yang diisi. Program berhenti.{RESET}\n")
+        console.print("\n[bold #FF3333][!] Tidak ada nilai atribut yang diisi. Program selesai.[/bold #FF3333]\n")
         return
 
-    print(f"\n{BLUE_CYAN}╭───────────────────────── PILIH METODE HASIL DORK ─────────────────────────╮{RESET}")
-    print(f"{BLUE_CYAN}│  {ORANGE_BOLD}[1]{RESET} {WHITE_BOLD}Query Tunggal{RESET}       {GRAY}-> Gabungkan semua atribut yang diisi          {BLUE_CYAN}│{RESET}")
-    print(f"{BLUE_CYAN}│  {ORANGE_BOLD}[2]{RESET} {WHITE_BOLD}Segala Kombinasi{RESET}    {GRAY}-> Otomatis buat semua variasi (1 s/d N atribut) {BLUE_CYAN}│{RESET}")
-    print(f"{BLUE_CYAN}╰────────────────────────────────────────────────────────────────────────────╯{RESET}")
+    # Pemilihan mode
+    mode_panel = Panel(
+        Text.from_markup(
+            "[bold #FF8C00][1] Query Tunggal[/bold #FF8C00]     : Gabungkan seluruh atribut yang diisi menjadi satu query utuh.\n"
+            "[bold #00D4FF][2] Segala Kombinasi[/bold #00D4FF] : Otomatis buat semua variasi kombinasi (dari 1 atribut s/d lengkap)."
+        ),
+        box=box.ROUNDED,
+        border_style="#0099FF",
+        title="[bold #FF8C00]Pilih Mode Hasil Dork[/bold #FF8C00]",
+        title_align="left"
+    )
+    console.print(mode_panel)
     
-    mode = clean_input(f"{BLUE_CYAN}╭─[{ORANGE_BOLD}Pilih mode 1 / 2{RESET}{BLUE_CYAN}] (Default: 1)\n╰──❯ {ORANGE_LIGHT}") or "1"
-    print(RESET, end="")
+    try:
+        mode = Prompt.ask("[bold #00D4FF]❯ Pilih mode [1/2][/bold #00D4FF]", choices=["1", "2"], default="1")
+    except (KeyboardInterrupt, EOFError):
+        abort_program()
     
     results = []
     if mode == "2":
         combos = generate_combinations(collected)
         for c in combos:
             results.append(build_query_string(c))
-        print(f"\n{GREEN}[✓]{RESET} {WHITE_BOLD}Berhasil menghasilkan {ORANGE_BOLD}{len(results)}{RESET} {WHITE_BOLD}kombinasi dork:{RESET}")
+        console.print(f"\n[bold #00FF66]✓[/bold #00FF66] [bold white]Berhasil menghasilkan [bold #FF8C00]{len(results)}[/bold #FF8C00] kombinasi dork:[/bold white]\n")
     else:
         results.append(build_query_string(collected))
-        print(f"\n{GREEN}[✓]{RESET} {WHITE_BOLD}Hasil Query Dork:{RESET}")
+        console.print(f"\n[bold #00FF66]✓[/bold #00FF66] [bold white]Hasil Query Dork:[/bold white]\n")
 
+    # Render Card Output
     for idx, query in enumerate(results, start=1):
         encoded = urllib.parse.quote_plus(query)
         url = f"https://www.google.com/search?q={encoded}"
         
-        print(f"\n{BLUE_CYAN}╭─[{ORANGE_BOLD} #{idx} {RESET}{BLUE_CYAN}]" + "─"*65 + f"╮{RESET}")
-        print(f"{BLUE_CYAN}│ {ORANGE}QUERY {RESET}: {WHITE_BOLD}{query}{RESET}")
-        print(f"{BLUE_CYAN}│ {BLUE_BOLD}URL   {RESET}: {BLUE_CYAN}{url}{RESET}")
-        print(f"{BLUE_CYAN}╰" + "─"*72 + f"╯{RESET}")
+        card_content = Text()
+        card_content.append("QUERY : ", style="bold #FF8C00")
+        card_content.append(f"{query}\n", style="bold white")
+        card_content.append("URL   : ", style="bold #00D4FF")
+        card_content.append(f"{url}", style="underline #00D4FF")
+        
+        console.print(
+            Panel(
+                card_content,
+                box=box.ROUNDED,
+                border_style="#0099FF",
+                title=f"[bold #FF8C00]#{idx:02d}[/bold #FF8C00]",
+                title_align="left"
+            )
+        )
 
-    # Simpan ke file
-    print(f"\n{BLUE_CYAN}──────────────────────────────────────────────────────────────────────────────{RESET}")
-    save_choice = clean_input(f"{BLUE_CYAN}Simpan hasil ke file teks? ({ORANGE_LIGHT}y/n{RESET}{BLUE_CYAN}, default: y) ❯ {ORANGE_LIGHT}").lower() or "y"
-    print(RESET, end="")
-    
-    if save_choice == 'y':
-        filename = clean_input(f"{BLUE_CYAN}Nama file ({GRAY}default: dork_results.txt{RESET}{BLUE_CYAN}) ❯ {ORANGE_LIGHT}") or "dork_results.txt"
-        print(RESET, end="")
+    # Simpan ke file teks
+    console.print()
+    try:
+        save_file = Confirm.ask("[bold #00D4FF]Simpan semua hasil ke file teks?[/bold #00D4FF]", default=True)
+    except (KeyboardInterrupt, EOFError):
+        abort_program()
+        
+    if save_file:
+        try:
+            filename = Prompt.ask("[bold #FF8C00]Nama file[/bold #FF8C00]", default="dork_results.txt").strip()
+        except (KeyboardInterrupt, EOFError):
+            abort_program()
+            
         with open(filename, "w", encoding="utf-8") as f:
             for idx, query in enumerate(results, start=1):
                 encoded = urllib.parse.quote_plus(query)
                 url = f"https://www.google.com/search?q={encoded}"
-                f.write(f"[{idx}] Query: {query}\n    URL  : {url}\n\n")
-        print(f"{GREEN}[✓]{RESET} Hasil berhasil disimpan di: {ORANGE_LIGHT}{os.path.abspath(filename)}{RESET}")
+                f.write(f"[{idx:02d}] Query: {query}\n     URL  : {url}\n\n")
+        console.print(f"[bold #00FF66]✓[/bold #00FF66] [dim white]Hasil disimpan di:[/dim white] [bold #FF8C00]{os.path.abspath(filename)}[/bold #FF8C00]\n")
 
-    # Buka di Browser
-    open_browser = clean_input(f"\n{BLUE_CYAN}Buka query pertama di browser? ({ORANGE_LIGHT}y/n{RESET}{BLUE_CYAN}, default: n) ❯ {ORANGE_LIGHT}").lower() or "n"
-    print(RESET, end="")
-    if open_browser == 'y' and results:
+    # Buka di browser
+    try:
+        open_web = Confirm.ask("[bold #00D4FF]Buka query pertama di web browser sekarang?[/bold #00D4FF]", default=False)
+    except (KeyboardInterrupt, EOFError):
+        abort_program()
+        
+    if open_web and results:
         target_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(results[0])}"
-        print(f"{BLUE_CYAN}[i] Membuka browser: {target_url}{RESET}")
+        console.print(f"[dim #00D4FF]Membuka browser...[/dim #00D4FF]")
         webbrowser.open(target_url)
-    
-    print(f"\n{ORANGE_BOLD}Selesai! Happy Hunting & Stay Safe!{RESET}\n")
+
+    console.print(Panel(Align.center("[bold #FF8C00]Selesai! Gunakan dork ini dengan bijak & etis. 🚀[/bold #FF8C00]"), box=box.ROUNDED, border_style="#0099FF"))
 
 if __name__ == "__main__":
     main()
