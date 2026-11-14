@@ -2,6 +2,7 @@
 """
 Interactive Google Dork & Advanced Search Query Builder
 Didesain dengan Rich UI: Auto-responsive terminal width, warna dominan Orange & Blue.
+Dilengkapi Buku Panduan & Cheatsheet Google Dorking manual.
 """
 
 import sys
@@ -17,6 +18,7 @@ from rich.text import Text
 from rich.prompt import Prompt, Confirm
 from rich import box
 from rich.align import Align
+from rich.rule import Rule
 
 console = Console()
 
@@ -34,6 +36,8 @@ OPERATORS = {
     "10": ("after:", "Hasil indeks sesudah tanggal tertentu", "2022-01-01"),
 }
 
+GUIDE_OPTION_KEY = "11"
+
 def render_banner():
     banner_text = Text()
     banner_text.append("⚡ GOOGLE DORK QUERY BUILDER ⚡\n", style="bold #FF8C00")
@@ -44,7 +48,7 @@ def render_banner():
         Align.center(banner_text),
         box=box.ROUNDED,
         border_style="#0099FF",
-        padding=(1, 2)
+        padding=(0, 1)
     )
     console.print(panel)
 
@@ -56,7 +60,7 @@ def display_operator_table():
         expand=True
     )
     table.add_column("No", justify="center", style="bold #FFA726", width=4, no_wrap=True)
-    table.add_column("Operator", style="bold #00D4FF", width=12, no_wrap=True)
+    table.add_column("Operator", style="bold #00D4FF", width=14, no_wrap=True)
     table.add_column("Fungsi & Kegunaan", style="white")
     table.add_column("Contoh Nilai", style="#90CAF9")
 
@@ -64,30 +68,178 @@ def display_operator_table():
         k_str = f"{int(key):02d}"
         table.add_row(k_str, op, desc, example)
 
+    # Opsi Paling Akhir: Buku Panduan / Guidebook
+    table.add_section()
+    table.add_row(
+        GUIDE_OPTION_KEY,
+        "📖 PANDUAN",
+        "[bold #FF8C00]Buku Panduan & Cheatsheet Google Dorking (Manual Guide)[/bold #FF8C00]",
+        "[italic #FFA726]Pilih opsi 11 untuk melihat panduan[/italic #FFA726]"
+    )
+
     console.print(table)
 
-def get_operator_choices():
-    display_operator_table()
+def display_guidebook():
+    """
+    Menampilkan buku panduan komprehensif, cheatsheet, dan contoh nyata penggunaan Google Dork.
+    """
+    console.print(Rule(title="[bold #FF8C00]📖 BUKU PANDUAN LENGKAP GOOGLE DORKING (CHEATSHEET)[/bold #FF8C00]", style="#0099FF"))
     
-    info_panel = Panel(
+    intro_panel = Panel(
         Text.from_markup(
-            "[bold white]Ketik nomor atribut yang ingin digunakan[/bold white] (pisahkan koma).\n"
-            "[dim]Contoh:[/] [bold #FFA726]1,2,5[/] atau [bold #FFA726]4,5[/] atau [bold #FFA726]1[/] "
-            "atau ketik [bold #FF8C00]all[/] untuk memilih semua operator."
+            "[bold white]Google Dorking[/bold white] (dikenal juga sebagai [bold #00D4FF]Google Hacking / Advanced Search[/bold #00D4FF]) "
+            "adalah teknik pencarian menggunakan operator khusus untuk mengungkap informasi sensitif, file tersembunyi, "
+            "panel login, maupun kesalahan konfigurasi yang tidak sengaja terindeks oleh mesin pencari Google.\n\n"
+            "[bold #FF8C00]⚠️ Aturan Sintaks Penting:[/] Antara operator dan nilai [bold red]TIDAK BOLEH[/bold red] ada spasi. "
+            "Contoh benar: [bold #00D4FF]site:target.com[/bold #00D4FF] (bukan [dim]site: target.com[/dim])."
         ),
         box=box.ROUNDED,
         border_style="#FF8C00",
-        title="[bold #FF8C00]Pilih Atribut[/bold #FF8C00]",
+        title="[bold #FF8C00]1. Konsep Dasar & Sintaks[/bold #FF8C00]",
         title_align="left"
     )
-    console.print(info_panel)
-    
+    console.print(intro_panel)
+
+    # 1. Penjelasan Atribut
+    attr_table = Table(
+        title="[bold #00D4FF]2. Penjelasan Mendalam Setiap Atribut & Contohnya[/bold #00D4FF]",
+        box=box.ROUNDED,
+        border_style="#0099FF",
+        header_style="bold #FF8C00",
+        expand=True
+    )
+    attr_table.add_column("Operator", style="bold #00D4FF", width=12, no_wrap=True)
+    attr_table.add_column("Cara Kerja & Trik Penggunaan", style="white")
+    attr_table.add_column("Contoh Nyata", style="#FFA726")
+
+    attr_table.add_row(
+        "site:",
+        "Membatasi pencarian hanya pada domain atau TLD spesifik. Bisa gunakan wildcard (*) atau minus (-) untuk exclude.",
+        "site:target.com\nsite:*.target.com -site:www.target.com\nsite:gov.id"
+    )
+    attr_table.add_row(
+        "filetype: / ext:",
+        "Menyaring dokumen berdasarkan ekstensi file. Sangat ampuh untuk audit dokumen publik atau file konfigurasi.",
+        "site:target.com filetype:pdf\nsite:target.com (ext:sql OR ext:env OR ext:bak)"
+    )
+    attr_table.add_row(
+        "inurl:",
+        "Memaksa Google mencari kata tertentu di dalam string URL / path halaman.",
+        "site:target.com inurl:admin\ninurl:wp-login.php\ninurl:api/v1"
+    )
+    attr_table.add_row(
+        "intitle:",
+        "Mengharuskan kata kunci berada pada tag <title> dokumen / halaman web.",
+        "intitle:\"index of /\"\nsite:target.com intitle:\"dashboard\"\nintitle:\"login portal\""
+    )
+    attr_table.add_row(
+        "intext:",
+        "Mencari kata kunci spesifik di seluruh body teks konten halaman.",
+        "site:target.com intext:\"confidential\"\nintext:\"DB_PASSWORD\" filetype:env"
+    )
+    attr_table.add_row(
+        "cache:",
+        "Menampilkan snapshot salinan web yang tersimpan di server Google (berguna jika web target sedang down / diedit).",
+        "cache:https://target.com/private-doc"
+    )
+    attr_table.add_row(
+        "related:",
+        "Menemukan website lain yang memiliki keterkaitan topik atau struktur dengan domain sasaran.",
+        "related:target.com"
+    )
+    attr_table.add_row(
+        "before: / after:",
+        "Memfilter hasil indeks berdasarkan kurun waktu (format tanggal: YYYY-MM-DD). Bagus untuk investigasi insiden.",
+        "site:target.com after:2024-01-01 before:2024-12-31"
+    )
+    console.print(attr_table)
+
+    # 2. Resep Dorking Populer
+    recipe_panel = Panel(
+        Text.from_markup(
+            "[bold #FF8C00]📂 1. Open Directory (Folder Server Terbuka):[/]\n"
+            "   [bold white]site:target.com intitle:\"index of /\" \"parent directory\"[/bold white]\n"
+            "   [dim white]→ Menemukan folder server web yang indexing-nya terbuka tanpa index.html.[/dim white]\n\n"
+
+            "[bold #FF8C00]🔐 2. Panel Login & Area Administrasi Tersembunyi:[/] \n"
+            "   [bold white]site:target.com (inurl:admin OR inurl:login OR inurl:cpanel OR inurl:portal) intitle:login[/bold white]\n"
+            "   [dim white]→ Mendeteksi endpoint autentikasi pengelola sistem yang terindeks publik.[/dim white]\n\n"
+
+            "[bold #FF8C00]🗄️ 3. File Backup & Database Dump Bocor:[/] \n"
+            "   [bold white]site:target.com (ext:sql OR ext:bak OR ext:dump OR ext:old OR ext:tar.gz)[/bold white]\n"
+            "   [dim white]→ Menemukan backup database atau arsip server yang tertinggal di webroot.[/dim white]\n\n"
+
+            "[bold #FF8C00]⚙️ 4. File Konfigurasi & Environment:[/] \n"
+            "   [bold white]site:target.com (ext:env OR ext:conf OR ext:ini OR ext:yml) intext:\"DB_HOST\"[/bold white]\n"
+            "   [dim white]→ Memeriksa apakah file kredensial aplikasi (.env / config) dapat diakses bebas.[/dim white]\n\n"
+
+            "[bold #FF8C00]📄 5. Dokumen Internal & Rahasia Perusahaan:[/] \n"
+            "   [bold white]site:target.com filetype:pdf (intext:\"confidential\" OR intext:\"internal use only\")[/bold white]\n"
+            "   [dim white]→ Mengaudit dokumen PDF internal yang tidak sengaja dipublikasikan.[/dim white]\n\n"
+
+            "[bold #FF8C00]🪵 6. Log Server & Debug Information:[/] \n"
+            "   [bold white]site:target.com (ext:log OR inurl:logs) (intext:\"error\" OR intext:\"exception\")[/bold white]\n"
+            "   [dim white]→ Mencari file catatan log error yang mengungkap arsitektur internal server.[/dim white]"
+        ),
+        box=box.ROUNDED,
+        border_style="#0099FF",
+        title="[bold #00D4FF]3. Resep Kombinasi Nyata (Real-World Dork Recipes)[/bold #00D4FF]",
+        title_align="left"
+    )
+    console.print(recipe_panel)
+
+    # 3. Tips Operator Logika
+    tips_panel = Panel(
+        Text.from_markup(
+            "• [bold #FFA726]Tanda Petik Ganda (\"...\")[/]: Wajib untuk frasa persis (exact phrase), contoh: [bold white]\"index of /admin\"[/bold white].\n"
+            "• [bold #FFA726]Operator Minus (-)[/]: Mengecualikan hasil, contoh: [bold white]site:target.com -site:www.target.com[/bold white] (fokus subdomain selain www).\n"
+            "• [bold #FFA726]Operator OR / Pipet (|)[/]: Logika boolean ATAU (harus huruf kapital), contoh: [bold white]ext:sql OR ext:bak[/bold white].\n"
+            "• [bold #FFA726]Tanda Kurung ( ... )[/]: Mengelompokkan logika multi-kondisi, contoh: [bold white]site:target.com (inurl:admin | inurl:login)[/bold white]."
+        ),
+        box=box.ROUNDED,
+        border_style="#FF8C00",
+        title="[bold #FF8C00]4. Tips & Logika Boolean Tambahan[/bold #FF8C00]",
+        title_align="left"
+    )
+    console.print(tips_panel)
+
+    console.print("\n[bold #00D4FF]Tekan [bold #FF8C00][Enter][/bold #FF8C00] untuk kembali ke Menu Utama, atau ketik [bold #FF3333]'q'[/bold #FF3333] untuk keluar.[/bold #00D4FF]")
+    try:
+        nav = Prompt.ask("❯ Navigasi", default="").strip().lower()
+    except (KeyboardInterrupt, EOFError):
+        abort_program()
+
+    if nav == 'q':
+        abort_program()
+
+def get_operator_choices():
     while True:
+        display_operator_table()
+        
+        info_panel = Panel(
+            Text.from_markup(
+                "[bold white]Ketik nomor atribut yang ingin digunakan[/bold white] (pisahkan koma).\n"
+                "[dim]Contoh:[/] [bold #FFA726]1,2,5[/] atau [bold #FFA726]4,5[/] atau [bold #FFA726]1[/] "
+                "atau ketik [bold #FF8C00]all[/] untuk memilih semua atribut.\n"
+                "[dim]Ketik[/] [bold #FF8C00]11[/] [dim]untuk membuka[/] [bold #FFA726]Buku Panduan & Cheatsheet Dorking Manual[/bold #FFA726]."
+            ),
+            box=box.ROUNDED,
+            border_style="#FF8C00",
+            title="[bold #FF8C00]Pilih Atribut / Menu[/bold #FF8C00]",
+            title_align="left"
+        )
+        console.print(info_panel)
+        
         try:
             choice = Prompt.ask("[bold #00D4FF]❯ Masukkan pilihan[/bold #00D4FF]").strip()
         except (KeyboardInterrupt, EOFError):
             abort_program()
             
+        if choice == GUIDE_OPTION_KEY or choice.lower() in ['guide', 'panduan', 'help']:
+            display_guidebook()
+            render_banner()
+            continue
+
         if choice.lower() == 'all':
             return list(OPERATORS.keys())
         
@@ -98,7 +250,7 @@ def get_operator_choices():
             ordered = [x for x in selected if not (x in seen or seen.add(x))]
             return ordered
         else:
-            console.print("[bold #FF3333][!] Pilihan tidak valid.[/bold #FF3333] [dim]Silakan masukkan nomor dari tabel (contoh: 1,2,4).[/dim]")
+            console.print("[bold #FF3333][!] Pilihan tidak valid.[/bold #FF3333] [dim]Silakan masukkan nomor dari tabel (contoh: 1,2,4 atau 11 untuk Panduan).[/dim]")
 
 def collect_attribute_values(chosen_keys):
     collected = []
@@ -112,8 +264,16 @@ def collect_attribute_values(chosen_keys):
             val = Prompt.ask(prompt_label).strip()
         except (KeyboardInterrupt, EOFError):
             abort_program()
+            return []  # unreachable safety net
             
         if val:
+            # Peringatan duplikat: filetype: dan ext: dengan nilai yang sama
+            if op_prefix in ("filetype:", "ext:"):
+                sibling_op = "ext:" if op_prefix == "filetype:" else "filetype:"
+                for existing_prefix, existing_val in collected:
+                    if existing_prefix == sibling_op and existing_val == val:
+                        console.print(f"            [bold #FFA726]⚠ Peringatan:[/bold #FFA726] [dim]'{op_prefix}{val}' redundan dengan '{sibling_op}{val}' yang sudah diisi — tetap ditambahkan.[/dim]")
+                        break
             collected.append((op_prefix, val))
         else:
             console.print(f"            [dim #666666]↳ dilewati (kosong)[/dim #666666]")
@@ -124,17 +284,38 @@ def collect_attribute_values(chosen_keys):
         free_text = Prompt.ask("[bold #FFA726]Kata Kunci Bebas / Quote Tambahan[/bold #FFA726] [dim]('contoh: \"admin dashboard\"' / kosongkan)[/dim]").strip()
     except (KeyboardInterrupt, EOFError):
         abort_program()
+        return []  # unreachable safety net
         
     if free_text:
         collected.append(("", free_text))
         
     return collected
 
+def _needs_quoting(prefix, val):
+    """
+    Tentukan apakah nilai perlu dibungkus kutip ganda.
+    - Operator yang nilainya selalu single-token (site, filetype, ext, cache,
+      related, before, after) TIDAK BOLEH di-quote.
+    - Operator frase (intitle, inurl, intext) di-quote hanya jika ada spasi
+      DAN belum dibungkus kutip.
+    - Kata kunci bebas (prefix kosong) tidak di-auto-quote karena user mungkin
+      memasukkan ekspresi boolean (OR, |, tanda kurung) yang harus tetap utuh.
+    """
+    NO_QUOTE_OPS = {"site:", "filetype:", "ext:", "cache:", "related:", "before:", "after:"}
+    if prefix in NO_QUOTE_OPS:
+        return False
+    if not prefix:
+        # Kata kunci bebas — jangan auto-quote, biarkan user mengontrol sendiri
+        return False
+    # Operator frase: quote hanya jika ada spasi dan belum dikutip
+    if ' ' in val and not (val.startswith('"') and val.endswith('"')):
+        return True
+    return False
+
 def build_query_string(items):
     query_parts = []
     for prefix, val in items:
-        # Jika nilai ada spasi dan belum dibungkus kutip, tambahkan kutip ganda
-        if ' ' in val and not (val.startswith('"') and val.endswith('"')):
+        if _needs_quoting(prefix, val):
             val = f'"{val}"'
         if prefix:
             query_parts.append(f"{prefix}{val}")
@@ -155,7 +336,6 @@ def abort_program():
     sys.exit(0)
 
 def main():
-    console.clear()
     render_banner()
     
     chosen_keys = get_operator_choices()
